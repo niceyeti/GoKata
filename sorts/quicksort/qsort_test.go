@@ -8,25 +8,6 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-func equal(a, b []int) bool {
-	if a == nil && b == nil {
-		return true
-	}
-	if a == nil || b == nil {
-		return false
-	}
-	if len(a) != len(b) {
-		return false
-	}
-
-	for i := 0; i < len(a); i++ {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}
-
 func TestInsertionSort(t *testing.T) {
 	Convey("Insertion sort tests", t, func() {
 		Convey("Given empty lists or index spec, nothing breaks", func() {
