@@ -33,8 +33,8 @@ func buildSimpleTreap() *Treap {
 }
 
 // TODO: Get is only partially built. These will need completion when Treap api is abstracted completely.
-func TestGet(t *testing.T) {
-	Convey("Get tests", t, func() {
+func TestGet(te *testing.T) {
+	Convey("Get tests", te, func() {
 		t := buildSimpleTreap()
 
 		Convey("When Get() called for existing values", func() {
@@ -57,11 +57,11 @@ func TestGet(t *testing.T) {
 	})
 }
 
-func TestInsertion(t *testing.T) {
+func TestInsertion(te *testing.T) {
 	// Insertion tests are a bit complicated since we must validate the structure of
 	// the tree to ensure its invariants; but doing so requires overriding internal
 	// assumptions, such as priority generation.
-	Convey("Insertion tests", t, func() {
+	Convey("Insertion tests", te, func() {
 		Convey("When treap is empty", func() {
 			t := Treap{}
 			err := t.Insert(3)
@@ -200,14 +200,58 @@ func TestInsertion(t *testing.T) {
 			So(t.root.right.left.right, ShouldBeNil)
 		})
 
-		Convey("When large random trees are generated, on errors occur", func() {
-			t := Treap{}
-			for i := 0; i < 1000; i++ {
-				err := t.Insert(rand.Int())
-				So(err, ShouldBeNil)
+		Convey("When random trees are generated, all trees are both bst-ordered and heap-ordered", func() {
+			for n := 0; n < 4; n++ {
+				t := Treap{}
+				for i := 0; i < 100; i++ {
+					_ = t.Insert(rand.Int() % 10000)
+					//So(err, ShouldBeNil)
+				}
+
+				So(isHeap(t.root, te), ShouldBeTrue)
+				So(isBST(t.root), ShouldBeTrue)
+
+				// Uncomment to view small trees (n < 10) for manual verification.
+				//s, _ := t.Format(BFSOrder)
+				//ioutil.WriteFile("test.txt", []byte(s), 0777)
 			}
 		})
 	})
+}
+
+// Verifies that all nodes are in min-heap order, such that every
+// node's priority is less than its children.
+func isHeap(node *treapNode, t *testing.T) bool {
+	if node == nil {
+		return true
+	}
+
+	if node.left != nil && node.priority > node.left.priority {
+		t.Logf("Violation at (%d,%d) with left (%d,%d)\n", node.val, node.priority, node.left.val, node.left.priority)
+		return false
+	}
+	if node.right != nil && node.priority > node.right.priority {
+		return false
+	}
+
+	return isHeap(node.left, t) && isHeap(node.right, t)
+}
+
+// Verifies that all nodes are in bst-order, such that all of a node's subtree
+// have values less than the node, and vice versa for the left subtree.
+func isBST(node *treapNode) bool {
+	if node == nil {
+		return true
+	}
+
+	if node.left != nil && node.left.val > node.val {
+		return false
+	}
+	if node.right != nil && node.val > node.right.val {
+		return false
+	}
+
+	return isBST(node.left) && isBST(node.right)
 }
 
 func toString(order TraversalOrder) string {
@@ -223,11 +267,11 @@ func toString(order TraversalOrder) string {
 	}
 }
 
-func TestFormat(t *testing.T) {
-	Convey("When various ordered formats are requested", t, func() {
+func TestFormat(te *testing.T) {
+	Convey("When various ordered formats are requested", te, func() {
 		Convey("When treap is empty", func() {
 			t := Treap{}
-			for _, order := range []TraversalOrder{PreOrder, InOrder, PostOrder} {
+			for _, order := range []TraversalOrder{PreOrder, InOrder, PostOrder, BFSOrder} {
 				result, err := t.Format(order)
 				So(err, ShouldBeNil)
 				So(result, ShouldEqual, "")
@@ -256,6 +300,10 @@ func TestFormat(t *testing.T) {
 				{
 					order:    PostOrder,
 					expected: "(2,2) (6,4) (4,0) ",
+				},
+				{
+					order:    BFSOrder,
+					expected: "                            \n       4e+00,0e+00          \n 2e+00,2e+00  6e+00,4e+00\n",
 				},
 			}
 

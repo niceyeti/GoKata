@@ -1,24 +1,19 @@
 # Treap
 
-A treap is a binary search tree (BST) that attempts to ensure O(log(n)) operations using a randomization strategy to distribute nodes
-such that it has the same general form as a randomly-generated bst.
-They are similar to a kd-tree in that nodes are inserted based on multidimensional keys, except that
-the treap itself generates half of the key.
-In short, a treap enforces a structure identical to the random distribution you would get by inserting random ints into a tree.
-The name is a combination of tree+heap, all of which was intentionally done so as to confuse programmers attempting to read
-most overly hand-waving descriptions of the data structure. :P
+A treap is a binary search tree (BST) that attempts to ensure O(log(n)) operations by implementing a randomization strategy to distribute nodes up/down such that it has the same structural distribution as a randomly-generated bst.
+They are similar to a kd-tree in that nodes are inserted based on multidimensional keys, except that the treap itself generates half of the key.
+The name is a combination of tree+heap, all of which was intentionally done to confuse programmers attempting to read hand-waving descriptions of the data structure. :P
 
 Formally, a treap consists of nodes containing a comparable stored value, x, as well as a randomly-generated value, y.
 The treap enforces both bst and heap-order structural properties:
-1) Nodes obey left/right bst-ordering: node A's left subtree contains x's < A.x and its right subtree contains x's > A.x
-2) Nodes obey heap order: node A's parent y value is less than A.y
+1) Nodes obey left/right bst-ordering: node A's left subtree contains x' < A.x and its right subtree contains x' > A.x
+2) Nodes obey min-heap order: A.y < parent.y
 
-Nodes are inserted into the tree based on bst-order based on their x value, and then assigned a randomly-generated y value
-by which the node is moved up/down to achieve heap order.
+Nodes are inserted in bst-order based on their x value, and then assigned a randomly-generated y value by which the node is moved up/down to achieve heap order.
 
-Thank God you are asking how this is even possible, since many authors (*cough cough* Weiss) simply hand wave, despite the fact
-that this insertion routine appears to break the bst-property. Nodes cannot be inserted in BST order and then simply
-percolated up/down to achieve heap order, since these two requirements are not consistent with eachother.
+And thank God you are asking how this is even possible, since many authors (*cough cough* Weiss) simply handwave, despite the fact
+that this insertion routine appears to break the bst-property: nodes cannot be inserted in BST order and then simply
+percolated up/down to achieve heap order, since these two requirements are seemingly inconsistent with one another.
 However, a node can be moved up/down using the appropriate tree rotations to do so, and as usual with trees,
 a few examples suffice to demonstrate.
 
