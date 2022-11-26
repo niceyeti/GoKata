@@ -16,6 +16,13 @@ var (
 	ErrDuplicateValue       error = errors.New("duplicate value")
 )
 
+// A Treap is a BST whose nodes left/right relationships preserve gt/lt
+// bst order relationships, but whose vertical relationships preserve
+// min-heap order via tree-rotations on insertion. The result is a simple
+// bst randomization property ensuring that a tree's height is lg(n) on
+// average, avoiding the degenerate O(n) cases for non-random BSTs.
+// Note: this implementation is purely for practice; it does not support
+// concurrency and should be abstracted to support arbitrary data types.
 type Treap struct {
 	root *treapNode
 }
@@ -26,9 +33,8 @@ type treapNode struct {
 	left, right *treapNode
 }
 
-// var priority_generator func() int = rand.Int
 var priority_generator func() int = func() int {
-	return rand.Int() % 1000
+	return rand.Int()
 }
 
 func init() {
@@ -44,6 +50,9 @@ const (
 	BFSOrder
 )
 
+// Format returns the prefix, postfix, or inorder representation of the treap.
+// BFS is also supported, which is a completely custom-spaced tree representation
+// for manual testing/displaying.
 func (t *Treap) Format(order TraversalOrder) (string, error) {
 	var sb strings.Builder
 	visitor := func(node *treapNode) {
@@ -67,57 +76,6 @@ func (t *Treap) Format(order TraversalOrder) (string, error) {
 	return sb.String(), nil
 }
 
-// Pretty prints a treap using 150 char wide terminal, which allows only modestly sized tree depths.
-/*
-	root
-		c1
-			A
-				D
-				Nil
-			B
-		c2
-			E
-			F
-
-
-					root
-				 1.1E9,4.2E5
-
-		  0.1E9,6.2E5   2.1E9,7.2E5
-
-    BFS visitor pattern:
-	- writer maintains spacing info
-	-
-
-	Alg:
-	- the number of a node tells its center position on a line among n peers, where n is a power of 2
-	- some n positions will be missing; these should consume constant width
-	- the spacing between nodes on a line is determined by the number of nodes to pack in
-	   * very few nodes means lots of spacing
-	   * very many nodes means tight spacing
-	   * equal spacing between nodes on a line
-	   * Result appearance:
-	           				*
-	        		*               *
-                *       *       *       *
-	          *   *   *   *   *   *   *   *
-		* Maths:
-		    Defs:
-			    nc: the number of nodes on a line (always some power of 2, minus 1)
-		   	    nw: the printed width of a node (including space printed for missing/null nodes)
-			    lw: the max/total line width (e.g. 180, or infinite based on 2**d where d is tree depth)
-			    sw: width between/around nodes
-				mw: minimum width between/around nodes
-				as: absolute start position for printing node
-				nn: node number
-		    Note that 'as' is the only parameter a printing routine needs.
-		    Then:
-				mw = 2
-			    lw = 2**d * mw + (2**d+1) * mw
-			    sw = (lw -  nc * nw) / (nc + 1)
-				as = (nn - 2**(d-1)) * (sw + nw)
-*/
-
 // The leading bit index of an int is useful because it also describes the
 // level of a node in a binary tree, when nodes are numbered in level-order
 // starting from 1. It is also floor(log2(n)).
@@ -129,12 +87,16 @@ func leadingBitIndex(n uint) (i uint) {
 	return
 }
 
+// formatBFS prints the tree vertically using BFS, using a simple procedural
+// spacing algorithm to equally distribute the nodes at a given level. This isn't
+// the tightest format to visualize parent-child relationships, but is useful
+// for manual testing.
 func (t *Treap) formatBFS() string {
 	// Node width is derived from this format: 5e+00,5e+00 which is from "%1.0e,%1.0e"
 	nw := 11
 	// Minimum width around nodes, i.e. at the deepest (most crowded) level of the tree.
 	mw := 2
-	// Tree depth
+	// Tree depth, to determine the line width required to print the widest section of the tree.
 	d := t.depth(t.root)
 	// Maximum line width, the total space required to evenly space nodes at the deepest level.
 	lw := int(math.Exp2(float64(d-1)))*nw + (int(math.Exp2(float64(d-1)))+1)*mw
@@ -168,7 +130,7 @@ func (t *Treap) formatBFS() string {
 		}
 
 		// Line-predecessors is the (maximum) number of preceding nodes on a line
-		lp := (int(nodeNumber) - nl)
+		lp := int(nodeNumber) - nl
 		// Absolute starting position is defined by the number of preceding nodes and padding space.
 		as := lp*nw + (lp+1)*sl
 		for line.Len() < (as - 1) {
@@ -195,7 +157,7 @@ func (t *Treap) visitBFS(fn func(*treapNode, uint)) {
 	type bfsData struct {
 		// Number is assigned to nodes in level-order, starting from 1.
 		// This number is equivalent to heap-array indices, such that spatial
-		// relations can be known, since a nodes left child is 2*number and right child
+		// relations can be known, since a node's left child is 2*number and right child
 		// is 2*number+1, its height is floor(lg(number)), etc.
 		number uint
 		node   *treapNode
@@ -288,48 +250,39 @@ func (t *Treap) Insert(val int) error {
 		return nil
 	}
 
-	return t.insert(val, t.root, &t.root)
+	return t.insert(val, &t.root)
 }
 
 // TODO: if this alg works, simplify by passing only parentLink, since it also contains @node as its value.
 // TODO: what if priorities are not unique?
-func (t *Treap) insert(val int, node *treapNode, parentLink **treapNode) error {
-	// TODO: remove me or simplify nil cases
-	if node == nil {
-		panic("node cannot be nil in insert()")
-	}
-
+func (t *Treap) insert(val int, parentLink **treapNode) error {
+	node := *parentLink
 	if node.val == val {
 		return ErrDuplicateValue
 	}
 
-	if val < node.val {
-		if node.left != nil {
-			if err := t.insert(val, node.left, &node.left); err != nil {
-				return err
-			}
-			*parentLink = t.rotateLeftChild(node)
-			return nil
-		}
+	// TODO: rotation when priorities are equal
 
-		node.left = &treapNode{
-			val:      val,
-			priority: priority_generator(),
+	// val < node.val, so traverse left
+	if val < node.val {
+		if node.left == nil {
+			node.left = &treapNode{
+				val:      val,
+				priority: priority_generator(),
+			}
+		} else if err := t.insert(val, &node.left); err != nil {
+			return err
 		}
 		*parentLink = t.rotateLeftChild(node)
 	} else {
 		// Case: val > node.val, so traverse right
-		if node.right != nil {
-			if err := t.insert(val, node.right, &node.right); err != nil {
-				return err
+		if node.right == nil {
+			node.right = &treapNode{
+				val:      val,
+				priority: priority_generator(),
 			}
-			*parentLink = t.rotateRightChild(node)
-			return nil
-		}
-
-		node.right = &treapNode{
-			val:      val,
-			priority: priority_generator(),
+		} else if err := t.insert(val, &node.right); err != nil {
+			return err
 		}
 		*parentLink = t.rotateRightChild(node)
 	}
@@ -337,7 +290,6 @@ func (t *Treap) insert(val int, node *treapNode, parentLink **treapNode) error {
 	return nil
 }
 
-// TODO: simplify error cases, e.g. node.left must not be nil in this func
 func (t *Treap) rotateLeftChild(node *treapNode) *treapNode {
 	if node.priority < node.left.priority {
 		// priorities already obey heap-order, so just return

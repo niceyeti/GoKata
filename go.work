@@ -1,6 +1,7 @@
 go 1.19
 
 use (
+	./lists/skiplist
 	./sorts/quicksort
 	./trees/treap
 )
