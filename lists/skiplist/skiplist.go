@@ -53,9 +53,12 @@ type skipNode struct {
 }
 
 var (
-	ErrDuplicateValue error      = errors.New("duplicate value")
-	ErrValueNotFound  error      = errors.New("value not found")
-	rand_generator    func() int = rand.Int
+	ErrDuplicateValue error = errors.New("duplicate value")
+	ErrValueNotFound  error = errors.New("value not found")
+	// rand_generator returns random values in [1,r]
+	rand_generator func(int) int = func(modulus int) int {
+		return rand.Int()%modulus + 1
+	}
 )
 
 // A new SkipList is created with a fixed r, much like a hash-table's size
@@ -80,61 +83,69 @@ func NewSkiplist(r int) *Skiplist {
 // to match list items based on an Id() interface or other comparable mechanism.
 func (sl *Skiplist) Get(n int) (int, error) {
 	ptrs := sl.search(n)
-	if ptrs[0] == nil || ptrs[0].value != n {
+	if ptrs[0] == nil || ptrs[0].next[0].value != n {
 		return 0, ErrValueNotFound
 	}
 
-	return ptrs[0].value, nil
+	return ptrs[0].next[0].value, nil
 }
 
-/*
-Search populates and returns a pointer slice of size r, for which each
-entry is the first node of that rank prior to n in the list ordering.
-
-For straightforward search, the 0th value in the slice contains the node
-less than or equal to the value. Hence the 0th index always contains:
-- the value searched for, if it exists
-- the first node prior that node's ordered location, if it does not.
-*/
+// Search populates and returns a pointer slice of size r, for which each
+// entry is the first node of that rank prior to n in the list ordering.
+// Entries in the slice may be nil if there is not yet a node of that rank,
+// and thus the entire slice will be nil if the list is currently empty.
+//
+// For straightforward search, the 0th value in the slice contains the last
+// node less than the value.
+// Nil values will always be found in the higher indices, if they exist.
 func (sl *Skiplist) search(n int) []*skipNode {
-	node := sl.root.next[0]
-	if node == nil {
+	if sl.root.next[0] == nil {
 		// List is empty, since sentinel/root points to nil.
 		return sl.root.next
 	}
 
-	ptrs := make([]*skipNode, sl.r)
+	node := sl.root
+	pointees := make([]*skipNode, sl.r)
 	for rank := sl.r - 1; rank >= 0; rank-- {
 		// Search for the last node at this level prior to the passed value, or nil
 		for node.next[rank] != nil && node.next[rank].value < n {
 			node = node.next[rank]
 		}
-		ptrs[rank] = node
+		pointees[rank] = node
 	}
 
-	return ptrs
+	return pointees
 }
 
 // Insert threads in a new node, whose header size is randomly generated in (0,r].
 // Per skiplist structure, the new node's header entries are required to point
 // to each next node for that entry's skip value.
 func (sl *Skiplist) Insert(n int) error {
-	ptrs := sl.search(n)
-	// TODO: when would ptrs[0] be nil?
-	if ptrs[0] != nil && ptrs[0].value == n {
+	pointees := sl.search(n)
+	if pointees[0] != nil &&
+		pointees[0].next[0] != nil &&
+		pointees[0].next[0].value == n {
 		return ErrDuplicateValue
 	}
 
-	hdrSize := rand_generator() % sl.r
+	hdrSize := rand_generator(sl.r)
 	newNode := &skipNode{
-		next: make([]*skipNode, hdrSize),
+		next:  make([]*skipNode, hdrSize),
+		value: n,
 	}
 
 	// Thread the new node into the previous node's headers,
-	// only up to hdrSize in the ptr array.
-	for i := 0; i < hdrSize; i++ {
-		newNode.next[i] = ptrs[i].next[i]
-		ptrs[i].next[i] = newNode
+	// only up to hdrSize in the new node's ptr slice.
+	for i := 0; i < len(newNode.next); i++ {
+		if pointees[i] != nil {
+			// Happy path: pointee is not nil
+			newNode.next[i] = pointees[i].next[i]
+			pointees[i].next[i] = newNode
+		} else {
+			// Unhappy path: the list was empty
+			newNode.next[i] = nil
+			pointees[i] = newNode
+		}
 	}
 
 	return nil
@@ -144,19 +155,22 @@ func (sl *Skiplist) Insert(n int) error {
 // Deletion is merely the inverse of insertion: point
 // all parent pointers to one's children, even if they are nil.
 func (sl *Skiplist) Delete(n int) error {
-	ptrs := sl.search(n)
-	// When is ptrs[0] nil?
-	if ptrs[0] == nil || ptrs[0].value != n {
+	pointees := sl.search(n)
+	// List is empty, or the value was not found.
+	if pointees[0] == nil ||
+		pointees[0].next[0] == nil ||
+		pointees[0].next[0].value != n {
 		return ErrValueNotFound
 	}
 
-	// Thread all parent pointers to the node's successors
-	target := ptrs[0].next[0]
+	// Forward all pointees of target to its successors
+	target := pointees[0].next[0]
 	for i := 0; i < len(target.next); i++ {
-		ptrs[i].next[i] = target.next[i]
+		pointees[i].next[i] = target.next[i]
 		// Nillify all ptrs to prevent mem leaks and release memory
 		target.next[i] = nil
 	}
+	target.next = nil
 
 	return nil
 }

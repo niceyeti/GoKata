@@ -24,8 +24,9 @@ func TestDeletion(t *testing.T) {
 
 		Convey("When Delete is called for an item that does not exist", func() {
 			sl := NewSkiplist(8)
-			_ = sl.Insert(123)
-			err := sl.Delete(456)
+			err := sl.Insert(123)
+			So(err, ShouldBeNil)
+			err = sl.Delete(456)
 			So(err, ShouldBeError, ErrValueNotFound)
 		})
 
@@ -63,7 +64,7 @@ func TestInsertion(t *testing.T) {
 			sl := NewSkiplist(3)
 			err := sl.Insert(123)
 			So(err, ShouldBeNil)
-			So(sl.begin.value, ShouldEqual, 123)
+			So(sl.root.next[0].value, ShouldEqual, 123)
 		})
 
 		Convey("When a duplicate is inserted", func() {
