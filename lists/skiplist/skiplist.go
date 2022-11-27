@@ -79,7 +79,7 @@ func NewSkiplist(r int) *Skiplist {
 }
 
 // TODO: this is just a demo, since it is obviously redundant to search
-// by value... for the same value, haha. The Skiplist should be abstracted
+// by value... for the same value. The Skiplist should be abstracted
 // to match list items based on an Id() interface or other comparable mechanism.
 func (sl *Skiplist) Get(n int) (int, error) {
 	ptrs := sl.search(n)
