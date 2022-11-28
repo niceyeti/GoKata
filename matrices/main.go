@@ -11,7 +11,6 @@ import (
 // to figure out the mapping of old to new indices. Usually this involves something like
 // the new x position mapping to the old y indices, while the new y index maps to the
 // reversal of the x indices, e.g. y' = max_x - x - 1.
-// 
 func rotateCW(matrix [][]int64, cw bool) (result [][]int64) {
 	max_x := len(matrix)
 	max_y := len(matrix[0])
@@ -41,12 +40,11 @@ func rotateCW(matrix [][]int64, cw bool) (result [][]int64) {
 	return
 }
 
-
-func main(){
+func main() {
 	matrix := [][]int64{
-		[]int64{2,3},
-		[]int64{5,6},
-		[]int64{7,8},
+		[]int64{2, 3},
+		[]int64{5, 6},
+		[]int64{7, 8},
 	}
 	result := rotateCW(matrix, true)
 	fmt.Println(matrix)
@@ -56,6 +54,3 @@ func main(){
 	fmt.Println(matrix)
 	fmt.Println(result)
 }
-
-
-
