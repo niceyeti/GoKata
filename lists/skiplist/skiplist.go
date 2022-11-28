@@ -33,7 +33,7 @@ import (
 //	Note the invariant that the first node contains R pointers, where R is the maximum
 //	number of pointers. This isn't strictly necessary, but simplifies code. This can
 //	also be implemented via a permanent empty dummy-start node, e.g. containing only
-//	a sentinel value such as -int.MaxInt.
+//	a sentinel value such as -int.MaxInt or whose value is never used.
 //
 // A personal misconception of my own is that the rank, r, of a pointer relates to the
 // a pow(2,r) number of nodes to skip. There is no such constraint. As shown, the
@@ -90,14 +90,15 @@ func (sl *Skiplist) Get(n int) (int, error) {
 	return ptrs[0].next[0].value, nil
 }
 
+// Search is the primary internal method for finding items and relevant
+// pointers for insertion, deletion, etc.
 // Search populates and returns a pointer slice of size r, for which each
 // entry is the first node of that rank prior to n in the list ordering.
-// Entries in the slice may be nil if there is not yet a node of that rank,
-// and thus the entire slice will be nil if the list is currently empty.
+// Entries in the slice may be nil if there is not yet a node of that rank;
 //
 // For straightforward search, the 0th value in the slice contains the last
 // node less than the value.
-// Nil values will always be found in the higher indices, if they exist.
+// Nil values will only be found in the higher indices, if they exist.
 func (sl *Skiplist) search(n int) []*skipNode {
 	if sl.root.next[0] == nil {
 		// List is empty, since sentinel/root points to nil.
