@@ -1,3 +1,45 @@
+*****************************************************************************************
+OBSOLETE: these notes considered writing an observable computational graph library.
+After research, a composition of RxGo (async) and go-linq (sync) ought to satisfy almost any use-case.
+There is no observable linq library, but writing one would seem somewhat trivial,
+using native language features. Although go-link is synchronous, and RxGo async, it is
+nice to have both, and to compose them with native language features, e.g. merely wrapping
+sync linq expressions in async channels and go-routines as needed.
+
+Examples one coul build easily using RxGo, go-linq, and native golang:
+- a dynamic api generator: using a self-descriptive language like GraphQL, one could
+  send a self-describing query to an endpoint which then would construct that query
+  and execute it or run it as a long-lived endpoint. Many variations exist: lambda,
+  calculator apps for specialized api's (e.g. signals), and so on.
+- computational graphs or expression evaluators: given an expression, construct an 
+  observable computation graph based on it. Many extensions: autograd, recorder patterns,
+  etc.
+- a dynamic notification api: how many times have you been asked to write (i.e. hard-code)
+  a notification application of some kind, subject to changing rules and features? It
+  would be awesome to have an api, or even merely a code-generation tool, by which to
+  take an input expression (defining a source, query/transform, and notification logic)
+  and then generate that notification logic as an endpoint. This has myriad automation
+  extensions: "when signaled by external device, activate camera, notify remote admin",
+  aka "when EVENT, exec ACTIVITY, do VERB, notify DEST". The goal being to minimize
+  writing infrastructural boilerplate.
+- a simplified frontend generator: when some quantitative parameters change, notify
+  some frontend/client, specified by some declarative ui structure (similar to fastview).
+  Send deltas to client, on change.
+- app/cluster diagnostic, e.g. a memory-leak monitor: easily query and monitor metrics
+  like memory usage for anomalies, custom-defined behavior, or monotonic increases.
+  Note this a a great candidate for something running as a sidecar in a dev namespace,
+  for dynamic and system-aware issues not usually apparent in development. The scope of
+  observation is obviously system stuff, not language introspection (that which requires
+  being in the app process' memory space), and much of this could be done via metrics
+  apis instead. But I still think there are some concerns best served, basically a
+  system-lint sidecar for spotting issues early, or even fuzzing.
+Further concerns:
+- cancellation and errors: these don't seem to be first-class considerations in the
+  open source libs, merely a 'make it to github first' mentality. Likewise per
+  performance.
+*****************************************************************************************
+
+
 This work is not a single graph data structure of algorithm,
 but an attempt at an observable graph library in golang with linq'ish semantics.
 These go by many names, e.g. computational graphs, but the
@@ -123,6 +165,12 @@ References and projects:
 - https://www.microsoft.com/en-us/research/wp-content/uploads/2011/06/paper-pldi.pdf
     Steno, gets into depth on the compiled view of the expression
     https://www.microsoft.com/en-us/research/publication/steno-automatic-optimization-of-declarative-queries/
+- look up generalized nested loops (GNP, Agarwal). There is a whole bunch of related works.
+- RxGo solves 99% of what I had in mind for this whole project:
+    https://github.com/ReactiveX/RxGo/
+    For example, one could use its api to construct query expressions based on GraphQL queries, a veritable api-generator.
+    But in the simplest sense, RxGo is an observable computation graph library.
+
 
 Sample code:
     var graph Graph<DTO>
