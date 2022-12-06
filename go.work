@@ -5,4 +5,5 @@ use (
 	./lists/skiplist
 	./sorts/quicksort
 	./trees/treap
+	./trees/avl
 )

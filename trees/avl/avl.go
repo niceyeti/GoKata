@@ -11,10 +11,21 @@ import (
 type Node struct {
 	left, right *Node
 	data        int
-	// Height is defined as the longest path from this node to a leaf (thus zero, if it is a leaf).
+	// Height is defined as the longest path from this node to a leaf (thus zero if it is a leaf).
 	height int
 }
 
+// AvlTrees implement a balance property to ensure that no sibling
+// subtrees differ in height by more than one (a modifiable parameter),
+// such that operations are O(lg(n)) on average. The balance property
+// is implemented using basic rotation operations. The reference design
+// for this implementation is from Weiss' Data Structures and Algorithm
+// Analysis 4th Ed. Treaps and skiplists are competing data structures;
+// to determine which one is better one would pencil out their mem/alg
+// complexity. AVL trees are nice because they are deterministic and
+// do not require any external dependencies.
+// NOTE: this is an exercise, this tree has not been evaluated for
+// performance or concurrent usage.
 type AvlTree struct {
 	root      *Node
 	nodeCount int
@@ -22,45 +33,56 @@ type AvlTree struct {
 
 var (
 	ErrDuplicateItem error = errors.New("duplicate item")
+	ErrItemNotFound  error = errors.New("item not found")
+)
+
+type DFSOrder int
+
+const (
+	PreOrder DFSOrder = iota + 1
+	PostOrder
+	InOrder
 )
 
 const allowedImbalance = 1
 
+// NewTree returns an empty AVL tree.
 func NewTree() *AvlTree {
 	return &AvlTree{}
 }
 
-func (t *AvlTree) Insert(n int) {
-	if t.root == nil {
-		t.root = &Node{
-			data:   n,
-			height: 1,
-		}
-		return
-	}
-
-	t.insert(&t.root, n)
+// Insert a new item in the tree.
+func (t *AvlTree) Insert(n int) error {
+	return t.insert(&t.root, n)
 }
 
-func (t *AvlTree) insert(node **Node, n int) error {
+func (t *AvlTree) insert(node **Node, n int) (err error) {
 	// base case
 	if *node == nil {
 		*node = &Node{
 			data:   n,
 			height: 0,
 		}
-		return nil
+		t.nodeCount++
+		return
 	}
 
 	if n == (*node).data {
-		return ErrDuplicateItem
+		err = ErrDuplicateItem
+		return
 	}
 
 	if n < (*node).data {
-		t.insert(&(*node).left, n)
+		err = t.insert(&(*node).left, n)
 	} else {
-		t.insert(&(*node).right, n)
+		err = t.insert(&(*node).right, n)
 	}
+
+	if err != nil {
+		return
+	}
+
+	setHeight(*node)
 
 	t.balance(node)
 
@@ -68,51 +90,56 @@ func (t *AvlTree) insert(node **Node, n int) error {
 }
 
 func (t *AvlTree) balance(node **Node) {
-	if (*node).left == nil || (*node).right == nil {
-		return
-	}
+	leftHeight := height((*node).left)
+	rightHeight := height((*node).right)
 
-	// TODO: still some lurking nils here, need to simplify
-	if leftImbalance(*node) {
+	if leftHeight-rightHeight > allowedImbalance {
+		// TODO: still some lurking nils here, need to simplify
 		if outerLeftDeeper(*node) {
-			// run left outer single rotation
+			// outer single rotation
 			rotateWithLeftChild(node)
 		} else {
-			// run left inner double rotation
+			// inner double rotation
 			doubleRotateWithLeftChild(node)
 		}
-	} else if rightImbalance(*node) {
+	} else if rightHeight-leftHeight > allowedImbalance {
 		if outerRightDeeper(*node) {
-			// run left outer single rotation
+			// outer single rotation
 			rotateWithRightChild(node)
 		} else {
-			// run left inner double rotation
+			// inner double rotation
 			doubleRotateWithRightChild(node)
 		}
 	}
 }
 
+/*
+// Left subtree is improperly higher than right.
 func leftImbalance(node *Node) bool {
-	return node.left.height-node.right.height > allowedImbalance
+	leftHeight := max(height(node.left), 0)
+	rightHeight := max(height(node.right), 0)
+
+	return leftHeight-rightHeight > allowedImbalance
 }
 
+// Right substree is improperly higher than left.
 func rightImbalance(node *Node) bool {
-	return node.right.height-node.left.height > allowedImbalance
+	leftHeight := max(height(node.left), 0)
+	rightHeight := max(height(node.right), 0)
+
+	return rightHeight-leftHeight > allowedImbalance
 }
+*/
 
 func outerLeftDeeper(node *Node) bool {
-	return node.left.left != nil &&
-		node.left.right != nil &&
-		node.left.left.height > node.left.right.height
+	return height(node.left.left) > height(node.left.right)
 }
 
 func outerRightDeeper(node *Node) bool {
-	return node.right.left != nil &&
-		node.right.right != nil &&
-		node.right.right.height > node.right.left.height
+	return height(node.right.right) > height(node.right.left)
 }
 
-// The rotation funcs are best understood via diagram only.
+// The rotation funcs are best understood via diagram.
 func rotateWithLeftChild(root **Node) {
 	k2 := *root
 	k1 := k2.left
@@ -120,11 +147,12 @@ func rotateWithLeftChild(root **Node) {
 	k1.right = k2
 	*root = k1
 
-	setHeight(k1)
+	// Note: this order of height updates is required.
 	setHeight(k2)
+	setHeight(k1)
 }
 
-// The rotation funcs are best understood via diagram only.
+// The rotation funcs are best understood via diagram.
 func rotateWithRightChild(root **Node) {
 	k2 := *root
 	k1 := k2.right
@@ -132,8 +160,9 @@ func rotateWithRightChild(root **Node) {
 	k1.left = k2
 	*root = k1
 
-	setHeight(k1)
+	// Note: this order of height updates is required.
 	setHeight(k2)
+	setHeight(k1)
 }
 
 func setHeight(node *Node) {
@@ -168,31 +197,88 @@ func max(x, y int) int {
 	return y
 }
 
-func (t *AvlTree) Delete(n int) {
-	t.delete(&t.root, n)
+// Delete removes an item from the tree, if it exists.
+func (t *AvlTree) Delete(n int) error {
+	return t.delete(&t.root, n)
 }
 
-func (t *AvlTree) delete(node **Node, n int) {
+func (t *AvlTree) delete(node **Node, n int) error {
 	// TODO: handle deletion of root
 
 	if *node == nil {
 		// item not found
-		return
+		return ErrItemNotFound
 	}
 
 	if n < (*node).data {
-		t.delete(&(*node).left, n)
+		if err := t.delete(&(*node).left, n); err != nil {
+			return err
+		}
 	} else if n > (*node).data {
-		t.delete(&(*node).right, n)
+		if err := t.delete(&(*node).right, n); err != nil {
+			return err
+		}
 	} else if (*node).left != nil && (*node).right != nil {
 		// Simply
 		(*node).data = findMin((*node).right).data
-		t.delete(&(*node).right, (*node).data)
+		if err := t.delete(&(*node).right, (*node).data); err != nil {
+			return err
+		}
 	} else {
-
+		fmt.Println("todo")
 	}
 
 	t.balance(node)
+	return nil
+}
+
+type nodeVisitor func(*Node)
+
+func (t *AvlTree) FormatDFS(order DFSOrder) string {
+	sb := strings.Builder{}
+	visitor := nodeVisitor(func(node *Node) {
+		sb.WriteString(fmt.Sprintf("%d ", node.data))
+	})
+
+	switch order {
+	case PreOrder:
+		preorder(t.root, visitor)
+	case InOrder:
+		inorder(t.root, visitor)
+	case PostOrder:
+		postorder(t.root, visitor)
+	default:
+		panic("DFSOrder not found")
+	}
+
+	return sb.String()
+}
+
+func preorder(node *Node, visitor nodeVisitor) {
+	if node == nil {
+		return
+	}
+	visitor(node)
+	preorder(node.left, visitor)
+	preorder(node.right, visitor)
+}
+
+func inorder(node *Node, visitor nodeVisitor) {
+	if node == nil {
+		return
+	}
+	inorder(node.left, visitor)
+	visitor(node)
+	inorder(node.right, visitor)
+}
+
+func postorder(node *Node, visitor nodeVisitor) {
+	if node == nil {
+		return
+	}
+	postorder(node.left, visitor)
+	postorder(node.right, visitor)
+	visitor(node)
 }
 
 // formatBFS prints the tree vertically using BFS, using a simple procedural
@@ -204,12 +290,12 @@ func (t *AvlTree) FormatBFS() string {
 		return "<empty>"
 	}
 
-	// Node width is derived from this format: 5e+00,5e+00 which is from "%1.0e,%1.0e"
-	nw := 11
+	// Node width is derived from this format: 5e+00,5e+00 which is from "%1.0e,%1.0e", or 3 or "%3d"
+	nw := 3
 	// Minimum width around nodes, i.e. at the deepest (most crowded) level of the tree.
 	mw := 2
 	// Tree depth, to determine the line width required to print the widest section of the tree.
-	d := t.root.height
+	d := t.root.height + 1
 	// Maximum line width, the total space required to evenly space nodes at the deepest level.
 	lw := int(math.Exp2(float64(d-1)))*nw + (int(math.Exp2(float64(d-1)))+1)*mw
 	// Space around nodes for a given level; this changes for each level.
@@ -248,7 +334,8 @@ func (t *AvlTree) FormatBFS() string {
 		for line.Len() < (as - 1) {
 			line.WriteString(" ")
 		}
-		ns := fmt.Sprintf("%1.0e", float64(node.data))
+		//ns := fmt.Sprintf("%1.0e", float64(node.data))
+		ns := fmt.Sprintf("%3d", node.data)
 		line.WriteString(ns)
 	}
 	t.visitBFS(visitor)
@@ -264,6 +351,11 @@ func (t *AvlTree) FormatBFS() string {
 // The leading bit index of an int is useful because it also describes the
 // level of a node in a binary tree, when nodes are numbered in level-order
 // starting from 1. It is also floor(log2(n)).
+// Input   Returned value
+// 0001         1
+// 0100         3
+// 1001011      7
+// 1000000      7
 func leadingBitIndex(n uint) (i uint) {
 	for n != 0 {
 		n = n >> 1
@@ -306,11 +398,10 @@ func (t *AvlTree) visitBFS(fn func(*Node, uint)) {
 		}
 
 		if item.node.right != nil {
-			q.PushBack(
-				bfsData{
-					number: item.number*2 + 1,
-					node:   item.node.right,
-				})
+			q.PushBack(bfsData{
+				number: item.number*2 + 1,
+				node:   item.node.right,
+			})
 		}
 	}
 }
@@ -323,7 +414,8 @@ func findMin(node *Node) *Node {
 }
 
 // Find returns a node given its value; obviously this is
-// redundant, it is purely for demonstration.
+// redundant, it is purely for demonstration. Returns nil
+// if not found.
 func (t *AvlTree) Find(n int) *Node {
 	return t.find(t.root, n)
 }
