@@ -219,13 +219,30 @@ func (t *AvlTree) delete(node **Node, n int) error {
 			return err
 		}
 	} else if (*node).left != nil && (*node).right != nil {
-		// Simply
+		// Target found and it has both children.
+		// Its min right successor is found and arbitrary placed here,
+		// to preserve BST order, and then that min node is itself deleted.
 		(*node).data = findMin((*node).right).data
-		if err := t.delete(&(*node).right, (*node).data); err != nil {
-			return err
-		}
-	} else {
-		fmt.Println("todo")
+		// err discarded because we know the item exists based on the previous line
+		_ = t.delete(&(*node).right, (*node).data)
+	} else if (*node).left != nil {
+		// Target found but only has left child OR none.
+		// For these cases, the node is merely in line to its children
+		// and can be removed directly.
+		*node = (*node).left
+		// Nil out the node pointers to allow its garbage collection
+		(*node).left = nil
+		(*node).right = nil
+		t.nodeCount--
+	} else if (*node).right != nil {
+		// Target found but only has right child.
+		// For these cases, the node is merely in line to its children
+		// and can be removed directly.
+		*node = (*node).right
+		// Nil out the node pointers to allow its garbage collection
+		(*node).left = nil
+		(*node).right = nil
+		t.nodeCount--
 	}
 
 	t.balance(node)

@@ -1,10 +1,50 @@
 package avl
 
 import (
+	"math"
+	"math/rand"
 	"testing"
+	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
+
+func TestFormatting(t *testing.T) {
+	Convey("Test recursive formatters", t, func() {
+		t := NewTree()
+		vals := []int{1, 2, 3, 4, 5, 6, 7, 8}
+		for _, v := range vals {
+			err := t.Insert(v)
+			So(err, ShouldBeNil)
+		}
+		/*
+			The resulting tree:
+
+							4
+						  /    \
+						2        6
+					  /   \    /   \
+					 1     3  5     7
+					                 \
+									  8
+		*/
+
+		Convey("Test preorder traversal", func() {
+			s := t.FormatDFS(PreOrder)
+			So(s, ShouldEqual, "4 2 1 3 6 5 7 8 ")
+		})
+
+		Convey("Test inorder traversal", func() {
+			s := t.FormatDFS(InOrder)
+			So(s, ShouldEqual, "1 2 3 4 5 6 7 8 ")
+		})
+
+		Convey("Test postorder traversal", func() {
+			s := t.FormatDFS(PostOrder)
+			So(s, ShouldEqual, "1 3 2 5 8 7 6 4 ")
+		})
+	})
+}
 
 func TestFind(t *testing.T) {
 	Convey("Find tests", t, func() {
@@ -51,6 +91,63 @@ func TestFind(t *testing.T) {
 			So(node, ShouldBeNil)
 			node = t.Find(-1)
 			So(node, ShouldBeNil)
+		})
+	})
+}
+
+func TestDelete(t *testing.T) {
+	Convey("Deletion tests", t, func() {
+		Convey("When Delete is called on a non-existent item", func() {
+			Convey("When the the item is highly nested and attempting to delete non-existent items", func() {
+				t := NewTree()
+				for i := 0; i < 32; i++ {
+					err := t.Insert(i)
+					So(err, ShouldBeNil)
+				}
+
+				err := t.Delete(-1)
+				So(err, ShouldBeError, ErrItemNotFound)
+				err = t.Delete(32)
+				So(err, ShouldBeError, ErrItemNotFound)
+			})
+
+			Convey("When Delete is called on an empty tree", func() {
+				t := NewTree()
+				err := t.Delete(123)
+				So(err, ShouldBeError, ErrItemNotFound)
+			})
+		})
+
+		Convey("When Delete is called on existing items", func() {
+			t := NewTree()
+			for i := 0; i < 32; i++ {
+				err := t.Insert(i)
+				So(err, ShouldBeNil)
+			}
+
+			err := t.Delete(0)
+			So(err, ShouldBeNil)
+
+			err = t.Delete(31)
+			So(err, ShouldBeNil)
+
+			err = t.Delete(16)
+			So(err, ShouldBeNil)
+		})
+
+		Convey("When Delete empties a tree", func() {
+			t := NewTree()
+			for i := 0; i < 32; i++ {
+				err := t.Insert(i)
+				So(err, ShouldBeNil)
+			}
+
+			for i := 0; i < 32; i++ {
+				err := t.Delete(i)
+				So(err, ShouldBeNil)
+			}
+			So(t.nodeCount, ShouldEqual, 0)
+			So(t.root, ShouldBeNil)
 		})
 	})
 }
@@ -270,6 +367,100 @@ func TestInsert(t *testing.T) {
 
 			treeStr := t.FormatDFS(InOrder)
 			So(treeStr, ShouldEqual, "1 2 4 ")
+		})
+
+		Convey("When progressively building a large contrived tree", func() {
+			tcs := []struct {
+				val                                 int
+				expectedPreOrder, expectedPostOrder string
+			}{
+				{
+					1,
+					"1 ",
+					"1 ",
+				},
+				{
+					2,
+					"1 2 ",
+					"2 1 ",
+				},
+				{
+					3,
+					"2 1 3 ",
+					"1 3 2 ",
+				},
+				{
+					4,
+					"2 1 3 4 ",
+					"1 4 3 2 ",
+				},
+				{
+					5,
+					"2 1 4 3 5 ",
+					"1 3 5 4 2 ",
+				},
+				{
+					6,
+					"4 2 1 3 5 6 ",
+					"1 3 2 6 5 4 ",
+				},
+				{
+					7,
+					"4 2 1 3 6 5 7 ",
+					"1 3 2 5 7 6 4 ",
+				},
+				{
+					8,
+					"4 2 1 3 6 5 7 8 ",
+					"1 3 2 5 8 7 6 4 ",
+				},
+			}
+
+			t := NewTree()
+			for _, tc := range tcs {
+				err := t.Insert(tc.val)
+				So(err, ShouldBeNil)
+
+				// A tree's structure is fully specified by its pre-order and post-order
+				// traversal, thus verifying both of these verifies their structure.
+				pre := t.FormatDFS(PreOrder)
+				So(pre, ShouldEqual, tc.expectedPreOrder)
+
+				post := t.FormatDFS(PostOrder)
+				So(post, ShouldEqual, tc.expectedPostOrder)
+			}
+		})
+
+		Convey("When building large trees sequentially (stress test)", func() {
+			t := NewTree()
+			for i := 0; i < 256; i++ {
+				err := t.Insert(i)
+				So(err, ShouldBeNil)
+			}
+			So(t.root.height, ShouldEqual, 8)
+
+			t = NewTree()
+			for i := 255; i >= 0; i-- {
+				err := t.Insert(i)
+				So(err, ShouldBeNil)
+			}
+			So(t.root.height, ShouldEqual, 8)
+
+			rand.Seed(time.Now().UnixNano())
+			t = NewTree()
+			n := 256
+			for i := 0; i < n; i++ {
+				err := t.Insert(rand.Int())
+				for err != nil {
+					err = t.Insert(rand.Int())
+				}
+			}
+
+			// It can be shown that a tree's height is at least lg(n), and at most
+			// 1.44 * lg(N+2) - 1.328.
+			maxHeight := math.Ceil(1.44*math.Log2(float64(n)+2.0) - 1.328)
+			minHeight := math.Floor(math.Log2(float64(n)))
+			So(t.root.height >= int(minHeight) || t.root.height <= int(maxHeight), ShouldBeTrue)
 		})
 	})
 }
