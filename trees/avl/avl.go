@@ -15,15 +15,14 @@ type Node struct {
 	height int
 }
 
-// AvlTrees implement a balance property to ensure that no sibling
-// subtrees differ in height by more than one (a modifiable parameter),
+// AvlTrees implement a balance property ensuring that sibling subtrees
+// do not differ in height by more than one (a modifiable parameter),
 // such that operations are O(lg(n)) on average. The balance property
-// is implemented using basic rotation operations. The reference design
-// for this implementation is from Weiss' Data Structures and Algorithm
-// Analysis 4th Ed. Treaps and skiplists are competing data structures;
-// to determine which one is better one would pencil out their mem/alg
-// complexity. AVL trees are nice because they are deterministic and
-// do not require any external dependencies.
+// is implemented using basic rotation operations. Treaps and skiplists
+// are competing data structures; to determine which one is better one
+// would pencil out their mem/alg complexity. AVL trees are nice because
+// they are deterministic and do not require any external dependencies.
+// Treaps and skiplists both require external rand sys dependencies.
 // NOTE: this is an exercise, this tree has not been evaluated for
 // performance or concurrent usage.
 type AvlTree struct {
@@ -113,24 +112,6 @@ func (t *AvlTree) balance(node **Node) {
 	}
 }
 
-/*
-// Left subtree is improperly higher than right.
-func leftImbalance(node *Node) bool {
-	leftHeight := max(height(node.left), 0)
-	rightHeight := max(height(node.right), 0)
-
-	return leftHeight-rightHeight > allowedImbalance
-}
-
-// Right substree is improperly higher than left.
-func rightImbalance(node *Node) bool {
-	leftHeight := max(height(node.left), 0)
-	rightHeight := max(height(node.right), 0)
-
-	return rightHeight-leftHeight > allowedImbalance
-}
-*/
-
 func outerLeftDeeper(node *Node) bool {
 	return height(node.left.left) > height(node.left.right)
 }
@@ -207,7 +188,6 @@ func (t *AvlTree) Delete(n int) error {
 }
 
 func (t *AvlTree) delete(node **Node, n int) (err error) {
-	// TODO: handle deletion of root
 	defer func() {
 		if err == nil && *node != nil {
 			t.balance(node)
@@ -231,8 +211,8 @@ func (t *AvlTree) delete(node **Node, n int) (err error) {
 
 	// Target found and has both children.
 	if (*node).left != nil && (*node).right != nil {
-		// Its min right successor is found and arbitrary placed here,
-		// to preserve BST order, and then that min node is itself deleted.
+		// Deletion strategy: target's value is replaced by its min-right successor,
+		// to preserve BST order, and then that min-right successor node is itself deleted.
 		// TODO: this introduces a bias defect whereby a succession of deletions
 		// selects the right-inner child as replacement, thus making the right tree
 		// shallower over time. I have not considered the full effects.
@@ -323,6 +303,9 @@ func (t *AvlTree) FormatBFS() string {
 		return "<empty>"
 	}
 
+	// Space-char is printed between/around nodes. It is often best to print a non-blank char to
+	// prevent editors from chomping leading space or converting spaces to tabs, etc.
+	spaceChar := "."
 	// Node width is derived from this format: 5e+00,5e+00 which is from "%1.0e,%1.0e", or 3 or "%3d"
 	nw := 3
 	// Minimum width around nodes, i.e. at the deepest (most crowded) level of the tree.
@@ -354,7 +337,7 @@ func (t *AvlTree) FormatBFS() string {
 
 			// Write out the previous line
 			for line.Len() < lw {
-				line.WriteString(" ")
+				line.WriteString(spaceChar)
 			}
 			sb.WriteString(line.String() + "\n")
 			line.Reset()
@@ -365,10 +348,11 @@ func (t *AvlTree) FormatBFS() string {
 		// Absolute starting position is defined by the number of preceding nodes and padding space.
 		as := lp*nw + (lp+1)*sl
 		for line.Len() < (as - 1) {
-			line.WriteString(" ")
+			line.WriteString(spaceChar)
 		}
 		//ns := fmt.Sprintf("%1.0e", float64(node.data))
 		ns := fmt.Sprintf("%3d", node.data)
+		ns = strings.Replace(ns, " ", spaceChar, -1)
 		line.WriteString(ns)
 	}
 	t.visitBFS(visitor)

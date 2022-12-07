@@ -45,6 +45,33 @@ func TestFormatting(t *testing.T) {
 			s := t.FormatDFS(PostOrder)
 			So(s, ShouldEqual, "1 3 2 5 8 7 6 4 ")
 		})
+
+		Convey("Unrecognized traversal should panic", func() {
+			forcePanic := func() {
+				t.FormatDFS(DFSOrder(-1))
+			}
+			So(forcePanic, ShouldPanic)
+		})
+
+		Convey("Test bfs traversal", func() {
+			s := t.FormatBFS()
+			So(s, ShouldEqual, `..........................................
+....................4.....................
+.............2..............6.............
+.......1........3........5........7.......
+......................................8
+`)
+
+			emptyTree := NewTree()
+			s = emptyTree.FormatBFS()
+			So(s, ShouldEqual, "<empty>")
+
+			visits := 0
+			emptyTree.visitBFS(func(node *Node, nodeNum uint) {
+				visits++
+			})
+			So(visits, ShouldEqual, 0)
+		})
 	})
 }
 
@@ -167,6 +194,12 @@ func TestDelete(t *testing.T) {
 			So(t.FormatDFS(PreOrder), ShouldEqual, "4 3 1 5 ")
 			So(t.FormatDFS(PostOrder), ShouldEqual, "1 3 5 4 ")
 
+			// Delete root node
+			err = t.Delete(4)
+			So(err, ShouldBeNil)
+			So(t.nodeCount, ShouldEqual, 3)
+			So(t.FormatDFS(PreOrder), ShouldEqual, "3 1 5 ")
+			So(t.FormatDFS(PostOrder), ShouldEqual, "1 5 3 ")
 		})
 
 		Convey("When Delete is called on existing items", func() {
@@ -188,18 +221,24 @@ func TestDelete(t *testing.T) {
 
 		Convey("When Delete empties a tree", func() {
 			t := NewTree()
-			for i := 0; i < 32; i++ {
-				err := t.Insert(i)
-				So(err, ShouldBeNil)
-			}
 
-			for i := 0; i < 32; i++ {
-				err := t.Delete(i)
-				So(err, ShouldBeNil)
-			}
+			// Builds and deletes tree twice, to test edge cases such as initial
+			// state (nodeCount zero, root nil) and valid return to initial state.
+			for i := 0; i < 2; i++ {
+				for i := 0; i < 32; i++ {
+					err := t.Insert(i)
+					So(err, ShouldBeNil)
+				}
+				So(t.nodeCount, ShouldEqual, 32)
 
-			So(t.nodeCount, ShouldEqual, 0)
-			So(t.root, ShouldBeNil)
+				for i := 0; i < 32; i++ {
+					err := t.Delete(i)
+					So(err, ShouldBeNil)
+				}
+
+				So(t.nodeCount, ShouldEqual, 0)
+				So(t.root, ShouldBeNil)
+			}
 		})
 	})
 }
@@ -215,10 +254,20 @@ func TestInsert(t *testing.T) {
 
 		Convey("When inserting duplicate items", func() {
 			t := NewTree()
-			err := t.Insert(6)
+			err := t.Insert(1)
 			So(err, ShouldBeNil)
-			err = t.Insert(6)
+			err = t.Insert(1)
 			So(err, ShouldBeError, ErrDuplicateItem)
+
+			// Add some items for a deeper tree
+			for i := 2; i <= 8; i++ {
+				err := t.Insert(i)
+				So(err, ShouldBeNil)
+			}
+
+			err = t.Insert(8)
+			So(err, ShouldBeError, ErrDuplicateItem)
+
 		})
 
 		Convey("When inserting items and left double rotation required", func() {
