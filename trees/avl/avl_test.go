@@ -9,6 +9,8 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
+// TODO: memory leak benchmarking, perf benchmarking
+
 func TestFormatting(t *testing.T) {
 	Convey("Test recursive formatters", t, func() {
 		t := NewTree()
@@ -118,6 +120,55 @@ func TestDelete(t *testing.T) {
 			})
 		})
 
+		Convey("When a manually defined tree has items deleted", func() {
+			t := NewTree()
+			for i := 1; i <= 8; i++ {
+				err := t.Insert(i)
+				So(err, ShouldBeNil)
+			}
+			So(t.nodeCount, ShouldEqual, 8)
+			/*
+				The resulting tree:
+
+								4
+							  /    \
+							2        6
+						  /   \    /   \
+						 1     3  5     7
+						                 \
+										  8
+			*/
+
+			// Delete node with a right child only
+			err := t.Delete(7)
+			So(err, ShouldBeNil)
+			So(t.nodeCount, ShouldEqual, 7)
+			So(t.FormatDFS(PreOrder), ShouldEqual, "4 2 1 3 6 5 8 ")
+			So(t.FormatDFS(PostOrder), ShouldEqual, "1 3 2 5 8 6 4 ")
+
+			// Delete node with no children
+			err = t.Delete(8)
+			So(err, ShouldBeNil)
+			So(t.nodeCount, ShouldEqual, 6)
+			So(t.FormatDFS(PreOrder), ShouldEqual, "4 2 1 3 6 5 ")
+			So(t.FormatDFS(PostOrder), ShouldEqual, "1 3 2 5 6 4 ")
+
+			// Delete node with left child only
+			err = t.Delete(6)
+			So(err, ShouldBeNil)
+			So(t.nodeCount, ShouldEqual, 5)
+			So(t.FormatDFS(PreOrder), ShouldEqual, "4 2 1 3 5 ")
+			So(t.FormatDFS(PostOrder), ShouldEqual, "1 3 2 5 4 ")
+
+			// Delete node with two children
+			err = t.Delete(2)
+			So(err, ShouldBeNil)
+			So(t.nodeCount, ShouldEqual, 4)
+			So(t.FormatDFS(PreOrder), ShouldEqual, "4 3 1 5 ")
+			So(t.FormatDFS(PostOrder), ShouldEqual, "1 3 5 4 ")
+
+		})
+
 		Convey("When Delete is called on existing items", func() {
 			t := NewTree()
 			for i := 0; i < 32; i++ {
@@ -131,7 +182,7 @@ func TestDelete(t *testing.T) {
 			err = t.Delete(31)
 			So(err, ShouldBeNil)
 
-			err = t.Delete(16)
+			err = t.Delete(15)
 			So(err, ShouldBeNil)
 		})
 
@@ -146,6 +197,7 @@ func TestDelete(t *testing.T) {
 				err := t.Delete(i)
 				So(err, ShouldBeNil)
 			}
+
 			So(t.nodeCount, ShouldEqual, 0)
 			So(t.root, ShouldBeNil)
 		})

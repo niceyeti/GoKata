@@ -199,54 +199,70 @@ func max(x, y int) int {
 
 // Delete removes an item from the tree, if it exists.
 func (t *AvlTree) Delete(n int) error {
-	return t.delete(&t.root, n)
+	err := t.delete(&t.root, n)
+	if err == nil {
+		t.nodeCount--
+	}
+	return err
 }
 
-func (t *AvlTree) delete(node **Node, n int) error {
+func (t *AvlTree) delete(node **Node, n int) (err error) {
 	// TODO: handle deletion of root
+	defer func() {
+		if err == nil && *node != nil {
+			t.balance(node)
+		}
+	}()
 
 	if *node == nil {
 		// item not found
-		return ErrItemNotFound
+		err = ErrItemNotFound
+		return
 	}
 
 	if n < (*node).data {
-		if err := t.delete(&(*node).left, n); err != nil {
-			return err
-		}
-	} else if n > (*node).data {
-		if err := t.delete(&(*node).right, n); err != nil {
-			return err
-		}
-	} else if (*node).left != nil && (*node).right != nil {
-		// Target found and it has both children.
-		// Its min right successor is found and arbitrary placed here,
-		// to preserve BST order, and then that min node is itself deleted.
-		(*node).data = findMin((*node).right).data
-		// err discarded because we know the item exists based on the previous line
-		_ = t.delete(&(*node).right, (*node).data)
-	} else if (*node).left != nil {
-		// Target found but only has left child OR none.
-		// For these cases, the node is merely in line to its children
-		// and can be removed directly.
-		*node = (*node).left
-		// Nil out the node pointers to allow its garbage collection
-		(*node).left = nil
-		(*node).right = nil
-		t.nodeCount--
-	} else if (*node).right != nil {
-		// Target found but only has right child.
-		// For these cases, the node is merely in line to its children
-		// and can be removed directly.
-		*node = (*node).right
-		// Nil out the node pointers to allow its garbage collection
-		(*node).left = nil
-		(*node).right = nil
-		t.nodeCount--
+		err = t.delete(&(*node).left, n)
+		return
+	}
+	if n > (*node).data {
+		err = t.delete(&(*node).right, n)
+		return
 	}
 
-	t.balance(node)
-	return nil
+	// Target found and has both children.
+	if (*node).left != nil && (*node).right != nil {
+		// Its min right successor is found and arbitrary placed here,
+		// to preserve BST order, and then that min node is itself deleted.
+		// TODO: this introduces a bias defect whereby a succession of deletions
+		// selects the right-inner child as replacement, thus making the right tree
+		// shallower over time. I have not considered the full effects.
+		(*node).data = findMin((*node).right).data
+		// err intentionally discarded because we know the item exists from the previous line
+		_ = t.delete(&(*node).right, (*node).data)
+		return
+	}
+
+	// Target found and has only a left child.
+	if (*node).left != nil {
+		// The node is merely in line to its children and removable.
+		left := (*node).left
+		// Nil out the node pointers to allow its garbage collection
+		(*node).left = nil
+		(*node).right = nil
+		*node = left
+		return
+	}
+
+	// Target found but only has right child OR no children (a leaf).
+	// For these cases, the node is merely in line to its children
+	// and can be removed directly.
+	right := (*node).right
+	// Nil out the node pointers to allow node's garbage collection
+	(*node).left = nil
+	(*node).right = nil
+	*node = right
+
+	return
 }
 
 type nodeVisitor func(*Node)
