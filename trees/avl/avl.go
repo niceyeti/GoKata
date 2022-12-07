@@ -35,6 +35,7 @@ var (
 	ErrItemNotFound  error = errors.New("item not found")
 )
 
+// DFSOrder merely describes a tree traversal order, per classic tree ops.
 type DFSOrder int
 
 const (
@@ -43,6 +44,7 @@ const (
 	InOrder
 )
 
+// The allowed difference between right/left subtrees.
 const allowedImbalance = 1
 
 // NewTree returns an empty AVL tree.
