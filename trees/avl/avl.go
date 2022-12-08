@@ -23,8 +23,8 @@ type Node struct {
 // would pencil out their mem/alg complexity. AVL trees are nice because
 // they are deterministic and do not require any external dependencies.
 // Treaps and skiplists both require external rand sys dependencies.
-// NOTE: this is an exercise, this tree has not been evaluated for
-// performance or concurrent usage.
+// NOTE: this is an exercise, this tree has not been fully evaluated for
+// correctness, performance, nor concurrent usage.
 type AvlTree struct {
 	root      *Node
 	nodeCount int
@@ -215,7 +215,7 @@ func (t *AvlTree) delete(node **Node, n int) (err error) {
 	if (*node).left != nil && (*node).right != nil {
 		// Deletion strategy: target's value is replaced by its min-right successor,
 		// to preserve BST order, and then that min-right successor node is itself deleted.
-		// TODO: this introduces a bias defect whereby a succession of deletions
+		// TODO: this introduces a bias whereby a succession of deletions
 		// selects the right-inner child as replacement, thus making the right tree
 		// shallower over time. I have not considered the full effects.
 		(*node).data = findMin((*node).right).data
@@ -433,8 +433,8 @@ func findMin(node *Node) *Node {
 }
 
 // Find returns a node given its value; obviously this is
-// redundant, it is purely for demonstration. Returns nil
-// if not found.
+// redundant, it is purely for demonstration.
+// Returns nil if not found.
 func (t *AvlTree) Find(n int) *Node {
 	return t.find(t.root, n)
 }
